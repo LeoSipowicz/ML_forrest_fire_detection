@@ -1,19 +1,17 @@
-from PIL import Image
 import os
-from skimage.feature import local_binary_pattern
-from skimage.color import rgb2gray
-from skimage import io
-import numpy as np
+
 import cv2
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import SelectKBest, f_classif
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-import os
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score
+from PIL import Image
+from skimage import io
+from skimage.color import rgb2gray
+from skimage.feature import local_binary_pattern
 from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.metrics import accuracy_score, f1_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 
 def get_mean_color(image_path):
@@ -68,6 +66,8 @@ def main():
     data_path = './Forest_Fire_Dataset/Training'
     labels = ["fire", "nofire"]
 
+    output_file = './results.txt'
+
     directory_list = []
 
     # Define the number of top features to select
@@ -76,6 +76,9 @@ def main():
     # Define the dataset and labels
     X = []
     y = []
+    color_list = []
+    hist_list = []
+    lines_list = []
     for label in labels:
         label_dir = os.path.join(data_path, label)
         for filename in os.listdir(label_dir):
@@ -84,8 +87,17 @@ def main():
             hist = get_lbp_feature(image_path)
             lines = get_hough_lines(image_path)
             features = np.concatenate([color, hist, [lines]])
+            color_list.append(color)
+            hist_list.append(hist)
+            lines_list.append(lines)
             X.append(features)
             y.append(label)
+        with open("results.txt", "a") as f:
+            f.write("Statistics for " + label + " group:\n")
+            f.write("Mean color: " + str(np.mean(color_list, axis=0)) + "\n")
+            f.write("Mean LBP feature: " +
+                    str(np.mean(hist_list, axis=0)) + "\n")
+            f.write("Mean Hough lines: " + str(np.mean(lines_list)) + "\n")
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=100)
 
@@ -100,11 +112,7 @@ def main():
     # Define the classifier
     clf = svm.SVC(kernel='linear')
 
-    # Train and evaluate the classifier
     clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    print("Accuracy:", accuracy)
 
     # TESTING
     # Define the path to the test data
@@ -135,9 +143,10 @@ def main():
 
     # Evaluate the accuracy of the model on the test data
     accuracy = accuracy_score(y_test, y_pred)
-    f1_scores = f1_score(y_test, y_pred, average=None, labels=labels)
-    print("Accuracy:", accuracy)
-    print("F1 Scores:", f1_scores)
+    f1_scores = f1_score(y_test, y_pred, average='weighted', labels=labels)
+    with open("results.txt", "a") as f:
+        f.write("Accuracy: " + str(accuracy) + "\n")
+        f.write("F1 Scores: " + str(f1_scores) + "\n")
 
 
 if __name__ == "__main__":
